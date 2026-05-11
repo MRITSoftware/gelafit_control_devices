@@ -26,6 +26,20 @@ where unit_email is not null;
 
 alter table public.gelafit_control_devices enable row level security;
 
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1
+       from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'gelafit_control_devices'
+     ) then
+    alter publication supabase_realtime add table public.gelafit_control_devices;
+  end if;
+end $$;
+
 drop policy if exists "gelafit_control_devices_read" on public.gelafit_control_devices;
 create policy "gelafit_control_devices_read"
 on public.gelafit_control_devices

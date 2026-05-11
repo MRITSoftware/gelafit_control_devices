@@ -22,6 +22,19 @@ Use `active_package` para definir qual app fica aberto na tela para o cliente me
 
 O app de suporte e aberto periodicamente para ajudar a manter o backend local vivo. Depois disso, o app principal e trazido para frente.
 
+## Supabase Realtime
+
+O app mantem o kiosk localmente sem consultar o banco a cada ciclo.
+O Supabase REST e usado no cadastro inicial, para status periodico e para marcar comando como executado.
+Comandos remotos chegam por WebSocket usando Supabase Realtime.
+
+Para habilitar a tabela no Realtime sem apagar outras tabelas da publication:
+
+```sql
+alter publication supabase_realtime
+add table public.gelafit_control_devices;
+```
+
 ## Comandos suportados
 
 - `open`: abre o pacote em `target_package`.

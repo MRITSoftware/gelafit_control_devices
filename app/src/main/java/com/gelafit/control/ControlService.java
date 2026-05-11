@@ -26,12 +26,18 @@ public class ControlService extends Service {
     private static final int NOTIFICATION_ID = 1042;
     private static final long SUPPORT_RELAUNCH_MS = 5 * 60 * 1000L;
     private static final long KIOSK_DELAY_MS = 20 * 1000L;
+    private static final long LOCAL_LOOP_MS = 15 * 1000L;
+    private static final long STATUS_UPDATE_MS = 5 * 60 * 1000L;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private boolean running;
+    private boolean registered;
     private long lastSupportLaunchAt;
+    private long lastStatusUpdateAt;
+    private long lastErrorUpdateAt;
     private long kioskPausedUntil;
     private String lastLaunchPlan = "";
+    private SupabaseRealtimeClient realtimeClient;
 
     private final Runnable loop = new Runnable() {
         @Override
@@ -46,7 +52,7 @@ public class ControlService extends Service {
                     tryUpdateStatus("error", e.getMessage());
                 }
             });
-            handler.postDelayed(this, 15000);
+            handler.postDelayed(this, LOCAL_LOOP_MS);
         }
     };
 
@@ -69,6 +75,10 @@ public class ControlService extends Service {
     public void onDestroy() {
         running = false;
         handler.removeCallbacks(loop);
+        if (realtimeClient != null) {
+            realtimeClient.stop();
+            realtimeClient = null;
+        }
         executor.shutdownNow();
         super.onDestroy();
     }
@@ -82,14 +92,55 @@ public class ControlService extends Service {
         List<String> selected = AppConfig.getSelectedPackages(this);
         String activePackage = AppConfig.getActivePackage(this);
         if (hasSupabaseConfig()) {
-            SupabaseClient client = new SupabaseClient(this);
+            ensureRealtimeStarted();
+            maybeRegisterAndUpdateStatus(selected, activePackage);
+        }
+        maintainSelectedApps(selected, activePackage);
+    }
+
+    private void ensureRealtimeStarted() {
+        if (realtimeClient != null) {
+            return;
+        }
+        realtimeClient = new SupabaseRealtimeClient(this, new SupabaseRealtimeClient.Listener() {
+            @Override
+            public void onDeviceChanged(JSONObject device) {
+                executor.execute(() -> {
+                    try {
+                        List<String> selected = syncSelectedAppsFromServer(device, AppConfig.getSelectedPackages(ControlService.this));
+                        syncActivePackageFromServer(device, AppConfig.getActivePackage(ControlService.this), selected);
+                        applyCommandIfNeeded(new SupabaseClient(ControlService.this), device, selected);
+                    } catch (Exception e) {
+                        tryUpdateStatus("error", e.getMessage());
+                    }
+                });
+            }
+
+            @Override
+            public void onRealtimeError(String error) {
+                tryUpdateStatus("realtime_error", error);
+            }
+        });
+        realtimeClient.start();
+    }
+
+    private void maybeRegisterAndUpdateStatus(List<String> selected, String activePackage) throws Exception {
+        long now = SystemClock.elapsedRealtime();
+        SupabaseClient client = new SupabaseClient(this);
+        if (!registered) {
             JSONObject device = client.fetchDevice();
             selected = syncSelectedAppsFromServer(device, selected);
             activePackage = syncActivePackageFromServer(device, activePackage, selected);
             applyCommandIfNeeded(client, device, selected);
             client.updateStatus("online", selected, activePackage, null);
+            registered = true;
+            lastStatusUpdateAt = now;
+            return;
         }
-        maintainSelectedApps(selected, activePackage);
+        if (now - lastStatusUpdateAt >= STATUS_UPDATE_MS) {
+            client.updateStatus("online", selected, activePackage, null);
+            lastStatusUpdateAt = now;
+        }
     }
 
     private void maintainSelectedApps(List<String> selected, String activePackage) {
@@ -236,6 +287,11 @@ public class ControlService extends Service {
         if (!hasSupabaseConfig()) {
             return;
         }
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastErrorUpdateAt < STATUS_UPDATE_MS) {
+            return;
+        }
+        lastErrorUpdateAt = now;
         try {
             new SupabaseClient(this).updateStatus(status, AppConfig.getSelectedPackages(this), AppConfig.getActivePackage(this), error);
         } catch (Exception ignored) {
