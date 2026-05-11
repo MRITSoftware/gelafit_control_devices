@@ -91,11 +91,12 @@ public class ControlService extends Service {
     private void tick() throws Exception {
         List<String> selected = AppConfig.getSelectedPackages(this);
         String activePackage = AppConfig.getActivePackage(this);
+        boolean kioskEnabled = AppConfig.isKioskEnabled(this);
         if (hasSupabaseConfig()) {
             ensureRealtimeStarted();
             maybeRegisterAndUpdateStatus(selected, activePackage);
         }
-        maintainSelectedApps(selected, activePackage);
+        maintainSelectedApps(selected, activePackage, kioskEnabled);
     }
 
     private void ensureRealtimeStarted() {
@@ -109,6 +110,7 @@ public class ControlService extends Service {
                     try {
                         List<String> selected = syncSelectedAppsFromServer(device, AppConfig.getSelectedPackages(ControlService.this));
                         syncActivePackageFromServer(device, AppConfig.getActivePackage(ControlService.this), selected);
+                        syncKioskEnabledFromServer(device);
                         applyCommandIfNeeded(new SupabaseClient(ControlService.this), device, selected);
                     } catch (Exception e) {
                         tryUpdateStatus("error", e.getMessage());
@@ -131,6 +133,7 @@ public class ControlService extends Service {
             JSONObject device = client.fetchDevice();
             selected = syncSelectedAppsFromServer(device, selected);
             activePackage = syncActivePackageFromServer(device, activePackage, selected);
+            syncKioskEnabledFromServer(device);
             applyCommandIfNeeded(client, device, selected);
             client.updateStatus("online", selected, activePackage, null);
             registered = true;
@@ -143,7 +146,7 @@ public class ControlService extends Service {
         }
     }
 
-    private void maintainSelectedApps(List<String> selected, String activePackage) {
+    private void maintainSelectedApps(List<String> selected, String activePackage, boolean kioskEnabled) {
         if (selected.isEmpty()) {
             return;
         }
@@ -160,13 +163,13 @@ public class ControlService extends Service {
             }
             lastSupportLaunchAt = now;
             lastLaunchPlan = launchPlan;
-            if (activePackage != null && !activePackage.isEmpty()) {
+            if (kioskEnabled && activePackage != null && !activePackage.isEmpty()) {
                 pauseKioskBriefly();
                 handler.postDelayed(() -> launchPackage(activePackage), KIOSK_DELAY_MS);
             }
             return;
         }
-        if (activePackage != null && !activePackage.isEmpty() && now >= kioskPausedUntil) {
+        if (kioskEnabled && activePackage != null && !activePackage.isEmpty() && now >= kioskPausedUntil) {
             launchPackage(activePackage);
         }
     }
@@ -207,6 +210,12 @@ public class ControlService extends Service {
         return activePackage;
     }
 
+    private boolean syncKioskEnabledFromServer(JSONObject device) {
+        boolean enabled = device.optBoolean("kiosk_enabled", true);
+        AppConfig.saveKioskEnabled(this, enabled);
+        return enabled;
+    }
+
     private void applyCommandIfNeeded(SupabaseClient client, JSONObject device, List<String> selected) throws Exception {
         long nonce = device.optLong("command_nonce", 0L);
         if (nonce <= AppConfig.getLastCommandNonce(this)) {
@@ -215,22 +224,27 @@ public class ControlService extends Service {
         String command = device.optString("command", "");
         String targetPackage = device.optString("target_package", "");
         String activePackage = AppConfig.getActivePackage(this);
+        boolean kioskEnabled = AppConfig.isKioskEnabled(this);
         if ("open".equals(command) && !targetPackage.isEmpty()) {
             launchPackage(targetPackage);
-            returnToKioskAfterSupport(targetPackage, activePackage);
+            if (kioskEnabled) {
+                returnToKioskAfterSupport(targetPackage, activePackage);
+            }
         } else if ("restart".equals(command) && !targetPackage.isEmpty()) {
             softRestartPackage(targetPackage);
-            returnToKioskAfterSupport(targetPackage, activePackage);
+            if (kioskEnabled) {
+                returnToKioskAfterSupport(targetPackage, activePackage);
+            }
         } else if ("restart_selected".equals(command)) {
-            launchSupportThenKiosk(selected, activePackage, true);
+            launchSupportThenKiosk(selected, activePackage, true, kioskEnabled);
         } else if ("open_selected".equals(command)) {
-            launchSupportThenKiosk(selected, activePackage, false);
+            launchSupportThenKiosk(selected, activePackage, false, kioskEnabled);
         }
         AppConfig.setLastCommandNonce(this, nonce);
         client.markCommandDone(nonce);
     }
 
-    private void launchSupportThenKiosk(List<String> selected, String activePackage, boolean restart) {
+    private void launchSupportThenKiosk(List<String> selected, String activePackage, boolean restart, boolean kioskEnabled) {
         boolean openedSupport = false;
         for (String packageName : selected) {
             if (!packageName.equals(activePackage)) {
@@ -244,8 +258,10 @@ public class ControlService extends Service {
         }
         if (activePackage != null && !activePackage.isEmpty()) {
             if (openedSupport) {
-                pauseKioskBriefly();
-                handler.postDelayed(() -> launchPackage(activePackage), KIOSK_DELAY_MS);
+                if (kioskEnabled) {
+                    pauseKioskBriefly();
+                    handler.postDelayed(() -> launchPackage(activePackage), KIOSK_DELAY_MS);
+                }
             } else if (restart) {
                 softRestartPackage(activePackage);
             } else {

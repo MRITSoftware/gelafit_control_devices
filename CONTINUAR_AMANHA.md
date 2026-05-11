@@ -10,6 +10,7 @@ Ele permite configurar:
 - Supabase URL e anon key ja ficam pre-configurados no app.
 - Dois apps instalados que devem ser monitorados (`selected_apps`).
 - App principal do kiosk (`active_package`), obrigatoriamente um dos dois selecionados.
+- Kiosk ativo/inativo via `kiosk_enabled`, recebido por Realtime.
 
 O `device_id` continua existindo como identificador tecnico unico do tablet.
 
@@ -28,6 +29,7 @@ O servico Android:
 - Roda em foreground com notificacao fixa.
 - Faz sincronizacao com o Supabase a cada 15 segundos.
 - Atualiza `status`, `last_seen_at`, `selected_apps`, `active_package` e `last_error`.
+- Mantem o kiosk somente quando `kiosk_enabled = true`.
 - Abre o app de suporte primeiro para ajudar a manter o backend local vivo.
 - Depois de cerca de 20 segundos, traz o app principal para frente.
 
@@ -44,6 +46,7 @@ Campos atuais da tabela `public.gelafit_control_devices`:
 - `status`
 - `selected_apps`
 - `active_package`
+- `kiosk_enabled`
 - `command`
 - `target_package`
 - `command_nonce`

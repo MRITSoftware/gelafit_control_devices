@@ -50,6 +50,14 @@ final class AppConfig {
         prefs(context).edit().putString("active_package", packageName == null ? "" : packageName).apply();
     }
 
+    static boolean isKioskEnabled(Context context) {
+        return prefs(context).getBoolean("kiosk_enabled", true);
+    }
+
+    static void saveKioskEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean("kiosk_enabled", enabled).apply();
+    }
+
     static long getLastCommandNonce(Context context) {
         return prefs(context).getLong("last_command_nonce", 0L);
     }

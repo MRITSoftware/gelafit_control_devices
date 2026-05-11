@@ -27,12 +27,33 @@ O app de suporte e aberto periodicamente para ajudar a manter o backend local vi
 O app mantem o kiosk localmente sem consultar o banco a cada ciclo.
 O Supabase REST e usado no cadastro inicial, para status periodico e para marcar comando como executado.
 Comandos remotos chegam por WebSocket usando Supabase Realtime.
+O campo `kiosk_enabled` tambem e ouvido por Realtime: quando `false`, o app para de trazer o kiosk para frente; quando `true`, volta a manter o kiosk ativo.
 
 Para habilitar a tabela no Realtime sem apagar outras tabelas da publication:
 
 ```sql
 alter publication supabase_realtime
 add table public.gelafit_control_devices;
+```
+
+Desativar temporariamente o kiosk:
+
+```sql
+update public.gelafit_control_devices
+set kiosk_enabled = false,
+    command_nonce = command_nonce + 1
+where unit_email = 'unidade@exemplo.com';
+```
+
+Reativar:
+
+```sql
+update public.gelafit_control_devices
+set kiosk_enabled = true,
+    command = 'open_selected',
+    target_package = null,
+    command_nonce = command_nonce + 1
+where unit_email = 'unidade@exemplo.com';
 ```
 
 ## Comandos suportados

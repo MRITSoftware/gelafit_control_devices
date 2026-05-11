@@ -45,6 +45,7 @@ final class SupabaseClient {
             created.put("command_nonce", 0);
             created.put("selected_apps", new JSONArray(AppConfig.getSelectedPackages(context)));
             created.put("active_package", AppConfig.getActivePackage(context));
+            created.put("kiosk_enabled", AppConfig.isKioskEnabled(context));
             upsertDevice(created);
             return created;
         }
@@ -55,11 +56,13 @@ final class SupabaseClient {
         payload.put("status", "online");
         payload.put("selected_apps", new JSONArray(AppConfig.getSelectedPackages(context)));
         payload.put("active_package", AppConfig.getActivePackage(context));
+        payload.put("kiosk_enabled", AppConfig.isKioskEnabled(context));
         patchByLookup(lookup, payload);
         existing.put("device_id", AppConfig.getDeviceId(context));
         existing.put("unit_email", unitEmail);
         existing.put("selected_apps", payload.getJSONArray("selected_apps"));
         existing.put("active_package", payload.optString("active_package", ""));
+        existing.put("kiosk_enabled", payload.optBoolean("kiosk_enabled", true));
         return existing;
     }
 
@@ -70,6 +73,7 @@ final class SupabaseClient {
         payload.put("last_seen_at", isoNow());
         payload.put("selected_apps", new JSONArray(selectedPackages));
         payload.put("active_package", activePackage == null || activePackage.isEmpty() ? JSONObject.NULL : activePackage);
+        payload.put("kiosk_enabled", AppConfig.isKioskEnabled(context));
         payload.put("last_error", lastError == null ? JSONObject.NULL : lastError);
         patchDevice(payload);
     }

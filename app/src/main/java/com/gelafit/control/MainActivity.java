@@ -24,6 +24,7 @@ import android.widget.RadioButton;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.Typeface;
 
 import java.util.ArrayList;
@@ -62,20 +63,20 @@ public class MainActivity extends android.app.Activity {
         ScrollView scroll = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(18), dp(18), dp(28));
-        root.setBackgroundColor(Color.rgb(248, 250, 252));
+        root.setPadding(dp(20), dp(20), dp(20), dp(22));
+        root.setBackgroundColor(Color.rgb(245, 247, 250));
         scroll.addView(root);
 
         TextView title = label("GelaFit Control", 24, true);
         root.addView(title);
 
-        TextView hint = label("Informe o e-mail da unidade, selecione 2 apps e marque qual deles e o kiosk.", 14, false);
+        TextView hint = label("Controle remoto do tablet, apps de suporte e kiosk.", 14, false);
         hint.setTextColor(Color.rgb(71, 85, 105));
-        hint.setPadding(0, dp(4), 0, dp(16));
+        hint.setPadding(0, dp(4), 0, dp(14));
         root.addView(hint);
 
         deviceId = label("Device ID: " + AppConfig.getDeviceId(this), 13, false);
-        deviceId.setTextColor(Color.rgb(15, 118, 110));
+        deviceId.setTextColor(Color.rgb(51, 65, 85));
         root.addView(deviceId);
 
         unitEmail = input("E-mail da unidade", AppConfig.getUnitEmail(this));
@@ -86,7 +87,7 @@ public class MainActivity extends android.app.Activity {
         supabaseInfo.setPadding(0, dp(8), 0, 0);
         root.addView(supabaseInfo);
 
-        permissionStatus = label("", 13, false);
+        permissionStatus = label("", 13, true);
         permissionStatus.setTextColor(Color.rgb(185, 28, 28));
         permissionStatus.setPadding(0, dp(8), 0, 0);
         root.addView(permissionStatus);
@@ -128,6 +129,12 @@ public class MainActivity extends android.app.Activity {
         activeDraft = AppConfig.getActivePackage(this);
         renderApps();
 
+        TextView footer = label("Copyright GelaFit - Tecnologia MRIT", 12, false);
+        footer.setGravity(Gravity.CENTER);
+        footer.setTextColor(Color.rgb(100, 116, 139));
+        footer.setPadding(0, dp(24), 0, 0);
+        root.addView(footer);
+
         setContentView(scroll);
         refreshPermissionStatus();
     }
@@ -145,7 +152,13 @@ public class MainActivity extends android.app.Activity {
             }
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.VERTICAL);
-            row.setPadding(0, dp(8), 0, dp(8));
+            row.setPadding(dp(12), dp(10), dp(12), dp(10));
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            rowParams.setMargins(0, dp(8), 0, 0);
+            row.setLayoutParams(rowParams);
+            row.setBackground(cardBackground());
 
             CheckBox check = new CheckBox(this);
             check.setText(app.label + "\n" + app.packageName);
@@ -347,7 +360,8 @@ public class MainActivity extends android.app.Activity {
         input.setText(value);
         input.setSingleLine(true);
         input.setTextSize(14);
-        input.setPadding(dp(10), dp(8), dp(10), dp(8));
+        input.setPadding(dp(12), dp(8), dp(12), dp(8));
+        input.setBackground(cardBackground());
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         params.setMargins(0, dp(10), 0, 0);
@@ -360,11 +374,35 @@ public class MainActivity extends android.app.Activity {
         button.setText(text);
         button.setAllCaps(false);
         button.setGravity(Gravity.CENTER);
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(14);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        if (text.toLowerCase(Locale.US).contains("bateria")) {
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(Color.WHITE);
+            bg.setCornerRadius(dp(6));
+            bg.setStroke(dp(1), Color.rgb(15, 118, 110));
+            button.setBackground(bg);
+            button.setTextColor(Color.rgb(15, 118, 110));
+        } else {
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(Color.rgb(15, 118, 110));
+            bg.setCornerRadius(dp(6));
+            button.setBackground(bg);
+        }
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
         params.setMargins(0, dp(12), 0, 0);
         button.setLayoutParams(params);
         return button;
+    }
+
+    private GradientDrawable cardBackground() {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.WHITE);
+        bg.setCornerRadius(dp(8));
+        bg.setStroke(dp(1), Color.rgb(226, 232, 240));
+        return bg;
     }
 
     private int dp(int value) {

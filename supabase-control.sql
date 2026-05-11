@@ -4,6 +4,7 @@ create table if not exists public.gelafit_control_devices (
   status text not null default 'offline',
   selected_apps jsonb not null default '[]'::jsonb,
   active_package text,
+  kiosk_enabled boolean not null default true,
   command text,
   target_package text,
   command_nonce bigint not null default 0,
@@ -19,6 +20,9 @@ add column if not exists unit_email text;
 
 alter table public.gelafit_control_devices
 add column if not exists active_package text;
+
+alter table public.gelafit_control_devices
+add column if not exists kiosk_enabled boolean not null default true;
 
 create unique index if not exists gelafit_control_devices_unit_email_key
 on public.gelafit_control_devices (unit_email)
