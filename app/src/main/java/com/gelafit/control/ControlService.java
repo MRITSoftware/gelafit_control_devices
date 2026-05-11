@@ -30,6 +30,7 @@ public class ControlService extends Service {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private boolean running;
     private long lastSupportLaunchAt;
+    private long kioskPausedUntil;
     private String lastLaunchPlan = "";
 
     private final Runnable loop = new Runnable() {
@@ -109,9 +110,13 @@ public class ControlService extends Service {
             lastSupportLaunchAt = now;
             lastLaunchPlan = launchPlan;
             if (activePackage != null && !activePackage.isEmpty()) {
+                pauseKioskBriefly();
                 handler.postDelayed(() -> launchPackage(activePackage), KIOSK_DELAY_MS);
             }
             return;
+        }
+        if (activePackage != null && !activePackage.isEmpty() && now >= kioskPausedUntil) {
+            launchPackage(activePackage);
         }
     }
 
@@ -158,21 +163,56 @@ public class ControlService extends Service {
         }
         String command = device.optString("command", "");
         String targetPackage = device.optString("target_package", "");
+        String activePackage = AppConfig.getActivePackage(this);
         if ("open".equals(command) && !targetPackage.isEmpty()) {
             launchPackage(targetPackage);
+            returnToKioskAfterSupport(targetPackage, activePackage);
         } else if ("restart".equals(command) && !targetPackage.isEmpty()) {
             softRestartPackage(targetPackage);
+            returnToKioskAfterSupport(targetPackage, activePackage);
         } else if ("restart_selected".equals(command)) {
-            for (String packageName : selected) {
-                softRestartPackage(packageName);
-            }
+            launchSupportThenKiosk(selected, activePackage, true);
         } else if ("open_selected".equals(command)) {
-            for (String packageName : selected) {
-                launchPackage(packageName);
-            }
+            launchSupportThenKiosk(selected, activePackage, false);
         }
         AppConfig.setLastCommandNonce(this, nonce);
         client.markCommandDone(nonce);
+    }
+
+    private void launchSupportThenKiosk(List<String> selected, String activePackage, boolean restart) {
+        boolean openedSupport = false;
+        for (String packageName : selected) {
+            if (!packageName.equals(activePackage)) {
+                if (restart) {
+                    softRestartPackage(packageName);
+                } else {
+                    launchPackage(packageName);
+                }
+                openedSupport = true;
+            }
+        }
+        if (activePackage != null && !activePackage.isEmpty()) {
+            if (openedSupport) {
+                pauseKioskBriefly();
+                handler.postDelayed(() -> launchPackage(activePackage), KIOSK_DELAY_MS);
+            } else if (restart) {
+                softRestartPackage(activePackage);
+            } else {
+                launchPackage(activePackage);
+            }
+        }
+    }
+
+    private void returnToKioskAfterSupport(String targetPackage, String activePackage) {
+        if (activePackage == null || activePackage.isEmpty() || activePackage.equals(targetPackage)) {
+            return;
+        }
+        pauseKioskBriefly();
+        handler.postDelayed(() -> launchPackage(activePackage), KIOSK_DELAY_MS);
+    }
+
+    private void pauseKioskBriefly() {
+        kioskPausedUntil = SystemClock.elapsedRealtime() + KIOSK_DELAY_MS;
     }
 
     private void softRestartPackage(String packageName) {
