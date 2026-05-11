@@ -38,8 +38,8 @@ public class MainActivity extends android.app.Activity {
     private LinearLayout appsContainer;
     private EditText unitEmail;
     private EditText searchApps;
-    private TextView deviceId;
     private TextView permissionStatus;
+    private Button permissionButton;
     private final ArrayList<CheckBox> appChecks = new ArrayList<>();
     private final ArrayList<RadioButton> activeChecks = new ArrayList<>();
     private final ArrayList<InstalledApp> allApps = new ArrayList<>();
@@ -50,7 +50,9 @@ public class MainActivity extends android.app.Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         buildUi();
-        requestRequiredPermissions();
+        if (hasRegisteredEmail()) {
+            requestRequiredPermissions();
+        }
     }
 
     @Override
@@ -70,35 +72,34 @@ public class MainActivity extends android.app.Activity {
         TextView title = label("GelaFit Control", 24, true);
         root.addView(title);
 
-        TextView hint = label("Controle remoto do tablet, apps de suporte e kiosk.", 14, false);
+        boolean registeredEmail = hasRegisteredEmail();
+        TextView hint = label(registeredEmail
+                ? "Configure os apps que devem rodar neste tablet."
+                : "Registre o e-mail da unidade para continuar.", 14, false);
         hint.setTextColor(Color.rgb(71, 85, 105));
         hint.setPadding(0, dp(4), 0, dp(14));
         root.addView(hint);
 
-        deviceId = label("Device ID: " + AppConfig.getDeviceId(this), 13, false);
-        deviceId.setTextColor(Color.rgb(51, 65, 85));
-        root.addView(deviceId);
-
         unitEmail = input("E-mail da unidade", AppConfig.getUnitEmail(this));
         root.addView(unitEmail);
 
-        TextView supabaseInfo = label("Supabase configurado automaticamente", 13, false);
-        supabaseInfo.setTextColor(Color.rgb(71, 85, 105));
-        supabaseInfo.setPadding(0, dp(8), 0, 0);
-        root.addView(supabaseInfo);
+        if (!registeredEmail) {
+            Button registerEmail = button("Registrar unidade");
+            registerEmail.setOnClickListener(v -> saveEmailAndContinue());
+            root.addView(registerEmail);
+            addFooter(root);
+            setContentView(scroll);
+            return;
+        }
 
         permissionStatus = label("", 13, true);
         permissionStatus.setTextColor(Color.rgb(185, 28, 28));
         permissionStatus.setPadding(0, dp(8), 0, 0);
         root.addView(permissionStatus);
 
-        Button save = button("Salvar e iniciar controle");
-        save.setOnClickListener(v -> saveSettings());
-        root.addView(save);
-
-        Button battery = button("Liberar bateria 24/7");
-        battery.setOnClickListener(v -> requestRequiredPermissions());
-        root.addView(battery);
+        permissionButton = button("Liberar permissões");
+        permissionButton.setOnClickListener(v -> requestRequiredPermissions());
+        root.addView(permissionButton);
 
         TextView appsTitle = label("Apps instalados", 18, true);
         appsTitle.setPadding(0, dp(18), 0, dp(8));
@@ -129,11 +130,11 @@ public class MainActivity extends android.app.Activity {
         activeDraft = AppConfig.getActivePackage(this);
         renderApps();
 
-        TextView footer = label("Copyright GelaFit - Tecnologia MRIT", 12, false);
-        footer.setGravity(Gravity.CENTER);
-        footer.setTextColor(Color.rgb(100, 116, 139));
-        footer.setPadding(0, dp(24), 0, 0);
-        root.addView(footer);
+        Button save = button("Salvar e iniciar controle");
+        save.setOnClickListener(v -> saveSettings());
+        root.addView(save);
+
+        addFooter(root);
 
         setContentView(scroll);
         refreshPermissionStatus();
@@ -241,13 +242,38 @@ public class MainActivity extends android.app.Activity {
                 .apply();
         AppConfig.setLastCommandNonce(this, 0L);
         startController();
-        new AlertDialog.Builder(this)
+        showMessage(
+                "Controle ativo",
+                "Controle salvo. O app de suporte abre primeiro e o kiosk volta para frente automaticamente.");
+    }
+
+    private void saveEmailAndContinue() {
+        String email = unitEmail.getText().toString().trim();
+        if (email.isEmpty()) {
+            showMessage("E-mail obrigatorio", "Informe o e-mail da unidade para continuar.");
+            return;
+        }
+        AppConfig.prefs(this).edit()
+                .putString("unit_email", email)
+                .putString("supabase_url", AppConfig.DEFAULT_SUPABASE_URL)
+                .putString("supabase_key", AppConfig.DEFAULT_SUPABASE_KEY)
+                .apply();
+        buildUi();
+        requestRequiredPermissions();
+    }
+
+    private boolean hasRegisteredEmail() {
+        return !AppConfig.getUnitEmail(this).trim().isEmpty();
+    }
+
+    /*
                 .setTitle("Controle ativo")
                 .setMessage("O serviço vai sincronizar com o Supabase e manter os apps selecionados abertos.")
                 .setPositiveButton("OK", null)
                 .show();
     }
 
+    */
     private void requestRequiredPermissions() {
         if (Build.VERSION.SDK_INT >= 33) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 10);
@@ -282,10 +308,12 @@ public class MainActivity extends android.app.Activity {
             return;
         }
         boolean ready = hasRequiredPermissions();
-        permissionStatus.setText(ready
-                ? "Permissoes principais liberadas"
-                : "Antes de salvar, libere sobreposicao e bateria 24/7.");
-        permissionStatus.setTextColor(ready ? Color.rgb(21, 128, 61) : Color.rgb(185, 28, 28));
+        permissionStatus.setVisibility(ready ? View.GONE : View.VISIBLE);
+        permissionStatus.setText("Libere as permissoes para manter o controle ativo.");
+        permissionStatus.setTextColor(Color.rgb(185, 28, 28));
+        if (permissionButton != null) {
+            permissionButton.setVisibility(ready ? View.GONE : View.VISIBLE);
+        }
     }
 
     private void openBatterySettings() {
@@ -323,6 +351,14 @@ public class MainActivity extends android.app.Activity {
                 .setMessage(message)
                 .setPositiveButton("OK", null)
                 .show();
+    }
+
+    private void addFooter(LinearLayout root) {
+        TextView footer = label("© GelaFit • Tecnologia MRIT", 12, false);
+        footer.setGravity(Gravity.CENTER);
+        footer.setTextColor(Color.rgb(100, 116, 139));
+        footer.setPadding(0, dp(24), 0, 0);
+        root.addView(footer);
     }
 
     static List<InstalledApp> loadLaunchableApps(Context context) {
@@ -377,7 +413,8 @@ public class MainActivity extends android.app.Activity {
         button.setTextColor(Color.WHITE);
         button.setTextSize(14);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        if (text.toLowerCase(Locale.US).contains("bateria")) {
+        String normalized = text.toLowerCase(Locale.US);
+        if (normalized.contains("bateria") || normalized.contains("permiss")) {
             GradientDrawable bg = new GradientDrawable();
             bg.setColor(Color.WHITE);
             bg.setCornerRadius(dp(6));
