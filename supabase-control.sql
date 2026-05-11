@@ -66,6 +66,15 @@ to anon
 using (true)
 with check (true);
 
+create or replace view public.gelafit_control_devices_status as
+select
+  *,
+  case
+    when last_seen_at > now() - interval '20 minutes' then 'online'
+    else 'offline'
+  end as computed_status
+from public.gelafit_control_devices;
+
 -- Exemplos de comando:
 -- Abrir pacote especifico:
 -- update public.gelafit_control_devices
