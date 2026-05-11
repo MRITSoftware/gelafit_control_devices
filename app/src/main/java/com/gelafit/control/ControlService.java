@@ -26,7 +26,7 @@ public class ControlService extends Service {
     private static final int NOTIFICATION_ID = 1042;
     private static final long SUPPORT_RELAUNCH_MS = 5 * 60 * 1000L;
     private static final long KIOSK_DELAY_MS = 20 * 1000L;
-    private static final long LOCAL_LOOP_MS = 15 * 1000L;
+    private static final long LOCAL_LOOP_MS = 1 * 1000L;
     private static final long STATUS_UPDATE_MS = 5 * 60 * 1000L;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
