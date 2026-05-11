@@ -8,8 +8,8 @@ App Android controlador para manter apps selecionados abertos e receber comandos
 2. Compile e instale o APK no tablet.
 3. Abra o app e libere as permissoes solicitadas.
 4. Informe o e-mail da unidade.
-5. Pesquise e selecione exatamente 2 apps.
-6. Marque qual dos 2 apps e o app principal do kiosk.
+5. Pesquise e selecione o MRIT Server.
+6. Depois selecione o app kiosk, normalmente o GelaFit GO.
 7. Toque em `Salvar e iniciar controle`.
 8. O app de suporte abre primeiro; cerca de 20 segundos depois o kiosk abre por cima.
 

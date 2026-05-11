@@ -8,8 +8,8 @@ Ele permite configurar:
 
 - E-mail da unidade (`unit_email`) para identificar o dispositivo de forma humana.
 - Supabase URL e anon key ja ficam pre-configurados no app.
-- Dois apps instalados que devem ser monitorados (`selected_apps`).
-- App principal do kiosk (`active_package`), obrigatoriamente um dos dois selecionados.
+- MRIT Server como app de suporte.
+- GelaFit GO como app kiosk (`active_package`), escolhido depois do servidor.
 - Kiosk ativo/inativo via `kiosk_enabled`, recebido por Realtime.
 
 O `device_id` continua existindo como identificador tecnico unico do tablet.

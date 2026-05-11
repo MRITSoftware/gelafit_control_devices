@@ -7,6 +7,9 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,34 +20,30 @@ import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.RadioButton;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.Typeface;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 public class MainActivity extends android.app.Activity {
+    private static final String DEFAULT_SUPPORT_PACKAGE = "com.mritsoftware.mritserver";
+    private static final String DEFAULT_KIOSK_PACKAGE = "com.mrit.gelafitgo";
+
     private LinearLayout appsContainer;
     private EditText unitEmail;
     private EditText searchApps;
     private TextView permissionStatus;
+    private TextView supportSelection;
+    private TextView kioskSelection;
     private Button permissionButton;
-    private final ArrayList<CheckBox> appChecks = new ArrayList<>();
-    private final ArrayList<RadioButton> activeChecks = new ArrayList<>();
     private final ArrayList<InstalledApp> allApps = new ArrayList<>();
-    private final Set<String> selectedDraft = new HashSet<>();
-    private String activeDraft = "";
+    private String supportDraft = "";
+    private String kioskDraft = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,7 +73,7 @@ public class MainActivity extends android.app.Activity {
 
         boolean registeredEmail = hasRegisteredEmail();
         TextView hint = label(registeredEmail
-                ? "Configure os apps que devem rodar neste tablet."
+                ? "Selecione o MRIT Server e depois o app kiosk."
                 : "Registre o e-mail da unidade para continuar.", 14, false);
         hint.setTextColor(Color.rgb(71, 85, 105));
         hint.setPadding(0, dp(4), 0, dp(14));
@@ -101,7 +100,19 @@ public class MainActivity extends android.app.Activity {
         permissionButton.setOnClickListener(v -> requestRequiredPermissions());
         root.addView(permissionButton);
 
-        TextView appsTitle = label("Apps instalados", 18, true);
+        allApps.clear();
+        allApps.addAll(loadLaunchableApps(this));
+        loadDraftSelection();
+
+        LinearLayout selectedBox = sectionBox();
+        supportSelection = label("", 14, true);
+        kioskSelection = label("", 14, true);
+        selectedBox.addView(supportSelection);
+        selectedBox.addView(kioskSelection);
+        root.addView(selectedBox);
+        updateSelectionSummary();
+
+        TextView appsTitle = label(currentStepTitle(), 18, true);
         appsTitle.setPadding(0, dp(18), 0, dp(8));
         root.addView(appsTitle);
 
@@ -123,11 +134,6 @@ public class MainActivity extends android.app.Activity {
         appsContainer = new LinearLayout(this);
         appsContainer.setOrientation(LinearLayout.VERTICAL);
         root.addView(appsContainer);
-        allApps.clear();
-        allApps.addAll(loadLaunchableApps(this));
-        selectedDraft.clear();
-        selectedDraft.addAll(AppConfig.getSelectedPackages(this));
-        activeDraft = AppConfig.getActivePackage(this);
         renderApps();
 
         Button save = button("Salvar e iniciar controle");
@@ -135,106 +141,138 @@ public class MainActivity extends android.app.Activity {
         root.addView(save);
 
         addFooter(root);
-
         setContentView(scroll);
         refreshPermissionStatus();
     }
 
+    private void loadDraftSelection() {
+        List<String> selected = AppConfig.getSelectedPackages(this);
+        kioskDraft = AppConfig.getActivePackage(this);
+        supportDraft = "";
+        for (String packageName : selected) {
+            if (!packageName.equals(kioskDraft)) {
+                supportDraft = packageName;
+                break;
+            }
+        }
+        if (supportDraft.isEmpty() && hasPackage(DEFAULT_SUPPORT_PACKAGE)) {
+            supportDraft = DEFAULT_SUPPORT_PACKAGE;
+        }
+        if (kioskDraft.isEmpty() && hasPackage(DEFAULT_KIOSK_PACKAGE)) {
+            kioskDraft = DEFAULT_KIOSK_PACKAGE;
+        }
+    }
+
     private void renderApps() {
         appsContainer.removeAllViews();
-        appChecks.clear();
-        activeChecks.clear();
         String query = searchApps == null ? "" : searchApps.getText().toString().trim().toLowerCase(Locale.US);
+        boolean choosingKiosk = !supportDraft.isEmpty();
         for (InstalledApp app : allApps) {
             if (!query.isEmpty()
                     && !app.label.toLowerCase(Locale.US).contains(query)
                     && !app.packageName.toLowerCase(Locale.US).contains(query)) {
                 continue;
             }
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.VERTICAL);
-            row.setPadding(dp(12), dp(10), dp(12), dp(10));
-            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            rowParams.setMargins(0, dp(8), 0, 0);
-            row.setLayoutParams(rowParams);
-            row.setBackground(cardBackground());
-
-            CheckBox check = new CheckBox(this);
-            check.setText(app.label + "\n" + app.packageName);
-            check.setTextSize(14);
-            check.setTag(app.packageName);
-            check.setChecked(selectedDraft.contains(app.packageName));
-            check.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                String packageName = (String) buttonView.getTag();
-                if (isChecked) {
-                    if (selectedDraft.size() >= 2 && !selectedDraft.contains(packageName)) {
-                        buttonView.setChecked(false);
-                        showMessage("Selecao obrigatoria", "Escolha exatamente 2 apps: um suporte e um kiosk.");
-                        return;
-                    }
-                    selectedDraft.add(packageName);
-                } else {
-                    selectedDraft.remove(packageName);
-                    if (packageName.equals(activeDraft)) {
-                        activeDraft = "";
-                    }
-                }
-                renderApps();
-            });
-            appChecks.add(check);
-            row.addView(check);
-
-            RadioButton active = new RadioButton(this);
-            active.setText("App principal (kiosk)");
-            active.setTextSize(13);
-            active.setTag(app.packageName);
-            active.setChecked(app.packageName.equals(activeDraft));
-            active.setEnabled(selectedDraft.contains(app.packageName));
-            active.setOnClickListener(v -> {
-                String packageName = (String) v.getTag();
-                if (!selectedDraft.contains(packageName)) {
-                    showMessage("Selecione o app primeiro", "O kiosk precisa ser um dos 2 apps escolhidos.");
-                    return;
-                }
-                activeDraft = packageName;
-                renderApps();
-            });
-            activeChecks.add(active);
-            row.addView(active);
-
-            appsContainer.addView(row);
+            if (choosingKiosk && app.packageName.equals(supportDraft)) {
+                continue;
+            }
+            appsContainer.addView(appRow(app, choosingKiosk));
         }
         if (appsContainer.getChildCount() == 0) {
             TextView empty = label("Nenhum app encontrado.", 14, false);
             empty.setTextColor(Color.rgb(71, 85, 105));
+            empty.setPadding(0, dp(12), 0, 0);
             appsContainer.addView(empty);
         }
+    }
+
+    private View appRow(InstalledApp app, boolean choosingKiosk) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowParams.setMargins(0, dp(8), 0, 0);
+        row.setLayoutParams(rowParams);
+        row.setBackground(cardBackground());
+
+        TextView name = label(app.label, 15, true);
+        TextView packageName = label(app.packageName, 12, false);
+        packageName.setTextColor(Color.rgb(100, 116, 139));
+        row.addView(name);
+        row.addView(packageName);
+
+        Button select = button(choosingKiosk ? "Selecionar como app kiosk" : "Selecionar como MRIT Server");
+        select.setOnClickListener(v -> {
+            if (choosingKiosk) {
+                kioskDraft = app.packageName;
+            } else {
+                supportDraft = app.packageName;
+                if (supportDraft.equals(kioskDraft)) {
+                    kioskDraft = "";
+                }
+            }
+            updateSelectionSummary();
+            renderApps();
+        });
+        row.addView(select);
+        return row;
+    }
+
+    private void updateSelectionSummary() {
+        if (supportSelection == null || kioskSelection == null) {
+            return;
+        }
+        supportSelection.setText("MRIT Server: " + displayPackage(supportDraft));
+        kioskSelection.setText("App kiosk: " + displayPackage(kioskDraft));
+        kioskSelection.setPadding(0, dp(6), 0, 0);
+    }
+
+    private String displayPackage(String packageName) {
+        if (packageName == null || packageName.isEmpty()) {
+            return "não selecionado";
+        }
+        for (InstalledApp app : allApps) {
+            if (app.packageName.equals(packageName)) {
+                return app.label + " (" + app.packageName + ")";
+            }
+        }
+        return packageName;
+    }
+
+    private String currentStepTitle() {
+        return supportDraft.isEmpty() ? "Selecione o MRIT Server" : "Selecione o app kiosk";
     }
 
     private void saveSettings() {
         String email = unitEmail.getText().toString().trim();
         if (email.isEmpty()) {
-            showMessage("E-mail obrigatorio", "Informe o e-mail da unidade antes de cadastrar.");
+            showMessage("E-mail obrigatório", "Informe o e-mail da unidade antes de cadastrar.");
             return;
         }
-        if (selectedDraft.size() != 2) {
-            showMessage("Selecao obrigatoria", "Escolha exatamente 2 apps: um suporte e um kiosk.");
+        if (supportDraft.isEmpty()) {
+            showMessage("MRIT Server obrigatório", "Selecione o app MRIT Server.");
             return;
         }
-        if (activeDraft.isEmpty() || !selectedDraft.contains(activeDraft)) {
-            showMessage("Kiosk obrigatorio", "Marque qual dos 2 apps escolhidos sera o kiosk.");
+        if (kioskDraft.isEmpty()) {
+            showMessage("Kiosk obrigatório", "Selecione o app kiosk.");
+            return;
+        }
+        if (supportDraft.equals(kioskDraft)) {
+            showMessage("Seleção inválida", "O MRIT Server e o app kiosk precisam ser apps diferentes.");
             return;
         }
         if (!hasRequiredPermissions()) {
             requestRequiredPermissions();
-            showMessage("Permissoes pendentes", "Libere as permissoes solicitadas e toque em salvar novamente.");
+            showMessage("Permissões pendentes", "Libere as permissões solicitadas e toque em salvar novamente.");
             return;
         }
-        ArrayList<String> selected = orderedSelectedPackages();
+        ArrayList<String> selected = new ArrayList<>();
+        selected.add(supportDraft);
+        selected.add(kioskDraft);
         AppConfig.saveSelectedPackages(this, selected);
-        AppConfig.saveActivePackage(this, activeDraft);
+        AppConfig.saveActivePackage(this, kioskDraft);
         AppConfig.prefs(this).edit()
                 .putString("unit_email", email)
                 .putString("supabase_url", AppConfig.DEFAULT_SUPABASE_URL)
@@ -244,13 +282,13 @@ public class MainActivity extends android.app.Activity {
         startController();
         showMessage(
                 "Controle ativo",
-                "Controle salvo. O app de suporte abre primeiro e o kiosk volta para frente automaticamente.");
+                "Controle salvo. O MRIT Server abre primeiro e o kiosk volta para frente automaticamente.");
     }
 
     private void saveEmailAndContinue() {
         String email = unitEmail.getText().toString().trim();
         if (email.isEmpty()) {
-            showMessage("E-mail obrigatorio", "Informe o e-mail da unidade para continuar.");
+            showMessage("E-mail obrigatório", "Informe o e-mail da unidade para continuar.");
             return;
         }
         AppConfig.prefs(this).edit()
@@ -266,14 +304,6 @@ public class MainActivity extends android.app.Activity {
         return !AppConfig.getUnitEmail(this).trim().isEmpty();
     }
 
-    /*
-                .setTitle("Controle ativo")
-                .setMessage("O serviço vai sincronizar com o Supabase e manter os apps selecionados abertos.")
-                .setPositiveButton("OK", null)
-                .show();
-    }
-
-    */
     private void requestRequiredPermissions() {
         if (Build.VERSION.SDK_INT >= 33) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 10);
@@ -309,7 +339,7 @@ public class MainActivity extends android.app.Activity {
         }
         boolean ready = hasRequiredPermissions();
         permissionStatus.setVisibility(ready ? View.GONE : View.VISIBLE);
-        permissionStatus.setText("Libere as permissoes para manter o controle ativo.");
+        permissionStatus.setText("Libere as permissões para manter o controle ativo.");
         permissionStatus.setTextColor(Color.rgb(185, 28, 28));
         if (permissionButton != null) {
             permissionButton.setVisibility(ready ? View.GONE : View.VISIBLE);
@@ -333,16 +363,6 @@ public class MainActivity extends android.app.Activity {
         } else {
             startService(serviceIntent);
         }
-    }
-
-    private ArrayList<String> orderedSelectedPackages() {
-        ArrayList<String> selected = new ArrayList<>();
-        for (InstalledApp app : allApps) {
-            if (selectedDraft.contains(app.packageName)) {
-                selected.add(app.packageName);
-            }
-        }
-        return selected;
     }
 
     private void showMessage(String title, String message) {
@@ -377,6 +397,15 @@ public class MainActivity extends android.app.Activity {
         }
         Collections.sort(apps, (a, b) -> a.label.compareToIgnoreCase(b.label));
         return apps;
+    }
+
+    private boolean hasPackage(String packageName) {
+        for (InstalledApp app : allApps) {
+            if (app.packageName.equals(packageName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private TextView label(String text, int sp, boolean bold) {
@@ -414,7 +443,7 @@ public class MainActivity extends android.app.Activity {
         button.setTextSize(14);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         String normalized = text.toLowerCase(Locale.US);
-        if (normalized.contains("bateria") || normalized.contains("permiss")) {
+        if (normalized.contains("permiss")) {
             GradientDrawable bg = new GradientDrawable();
             bg.setColor(Color.WHITE);
             bg.setCornerRadius(dp(6));
@@ -432,6 +461,19 @@ public class MainActivity extends android.app.Activity {
         params.setMargins(0, dp(12), 0, 0);
         button.setLayoutParams(params);
         return button;
+    }
+
+    private LinearLayout sectionBox() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(12), dp(12), dp(12), dp(12));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, dp(14), 0, 0);
+        box.setLayoutParams(params);
+        box.setBackground(cardBackground());
+        return box;
     }
 
     private GradientDrawable cardBackground() {
