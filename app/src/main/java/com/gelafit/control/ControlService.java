@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ControlService extends Service {
+    static final String ACTION_LAUNCH_SELECTED = "com.gelafit.control.LAUNCH_SELECTED";
     private static final String CHANNEL_ID = "gelafit_control";
     private static final int NOTIFICATION_ID = 1042;
     private static final long SUPPORT_RELAUNCH_MS = 5 * 60 * 1000L;
@@ -68,6 +69,13 @@ public class ControlService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         running = true;
+        if (intent != null && ACTION_LAUNCH_SELECTED.equals(intent.getAction())) {
+            executor.execute(() -> launchSupportThenKiosk(
+                    AppConfig.getSelectedPackages(this),
+                    AppConfig.getActivePackage(this),
+                    false,
+                    AppConfig.isKioskEnabled(this)));
+        }
         return START_STICKY;
     }
 

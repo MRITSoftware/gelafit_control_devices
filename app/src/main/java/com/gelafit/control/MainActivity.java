@@ -184,6 +184,13 @@ public class MainActivity extends android.app.Activity {
         Button edit = button("Alterar configuração");
         edit.setOnClickListener(v -> askEmailToEdit());
         root.addView(edit);
+
+        Button launch = button("Iniciar apps agora");
+        launch.setOnClickListener(v -> {
+            startController(ControlService.ACTION_LAUNCH_SELECTED);
+            showMessage("Comando local enviado", "O MRIT Server será aberto e depois o kiosk voltará para frente.");
+        });
+        root.addView(launch);
         addFooter(root);
     }
 
@@ -321,7 +328,7 @@ public class MainActivity extends android.app.Activity {
                 .putString("supabase_key", AppConfig.DEFAULT_SUPABASE_KEY)
                 .apply();
         AppConfig.setLastCommandNonce(this, 0L);
-        startController();
+        startController(null);
         editingUnlocked = false;
         buildUi();
         showMessage(
@@ -406,8 +413,11 @@ public class MainActivity extends android.app.Activity {
         }
     }
 
-    private void startController() {
+    private void startController(String action) {
         Intent serviceIntent = new Intent(this, ControlService.class);
+        if (action != null) {
+            serviceIntent.setAction(action);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);
         } else {
