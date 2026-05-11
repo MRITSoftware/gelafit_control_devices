@@ -84,6 +84,17 @@ public class ControlService extends Service {
     }
 
     @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        Intent restart = new Intent(getApplicationContext(), ControlService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(restart);
+        } else {
+            startService(restart);
+        }
+        super.onTaskRemoved(rootIntent);
+    }
+
+    @Override
     public IBinder onBind(Intent intent) {
         return null;
     }

@@ -19,7 +19,7 @@ public class SplashActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
-        root.setBackgroundColor(Color.WHITE);
+        root.setBackgroundColor(Color.BLACK);
         root.setPadding(dp(32), dp(32), dp(32), dp(32));
 
         ImageView logo = new ImageView(this);
@@ -29,8 +29,8 @@ public class SplashActivity extends Activity {
         root.addView(logo, logoParams);
 
         TextView footer = new TextView(this);
-        footer.setText("© GelaFit • Tecnologia MRIT");
-        footer.setTextColor(Color.rgb(71, 85, 105));
+        footer.setText("\u00A9 GelaFit \u2022 Tecnologia MRIT");
+        footer.setTextColor(Color.rgb(226, 232, 240));
         footer.setTextSize(13);
         footer.setGravity(Gravity.CENTER);
         footer.setPadding(0, dp(22), 0, 0);

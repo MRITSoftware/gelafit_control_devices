@@ -44,12 +44,13 @@ public class MainActivity extends android.app.Activity {
     private final ArrayList<InstalledApp> allApps = new ArrayList<>();
     private String supportDraft = "";
     private String kioskDraft = "";
+    private boolean editingUnlocked;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         buildUi();
-        if (hasRegisteredEmail()) {
+        if (hasRegisteredEmail() && !isFullyConfigured()) {
             requestRequiredPermissions();
         }
     }
@@ -65,7 +66,7 @@ public class MainActivity extends android.app.Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(20), dp(20), dp(20), dp(22));
-        root.setBackgroundColor(Color.rgb(245, 247, 250));
+        root.setBackgroundColor(Color.rgb(241, 245, 249));
         scroll.addView(root);
 
         TextView title = label("GelaFit Control", 24, true);
@@ -78,6 +79,12 @@ public class MainActivity extends android.app.Activity {
         hint.setTextColor(Color.rgb(71, 85, 105));
         hint.setPadding(0, dp(4), 0, dp(14));
         root.addView(hint);
+
+        if (isFullyConfigured() && !editingUnlocked) {
+            renderOperationScreen(root);
+            setContentView(scroll);
+            return;
+        }
 
         unitEmail = input("E-mail da unidade", AppConfig.getUnitEmail(this));
         root.addView(unitEmail);
@@ -161,6 +168,41 @@ public class MainActivity extends android.app.Activity {
         if (kioskDraft.isEmpty() && hasPackage(DEFAULT_KIOSK_PACKAGE)) {
             kioskDraft = DEFAULT_KIOSK_PACKAGE;
         }
+    }
+
+    private void renderOperationScreen(LinearLayout root) {
+        LinearLayout box = sectionBox();
+        TextView status = label("GelaFit Control está em operação", 18, true);
+        status.setTextColor(Color.rgb(15, 118, 110));
+        TextView detail = label("O tablet está mantendo os apps configurados e ouvindo comandos remotos.", 14, false);
+        detail.setTextColor(Color.rgb(71, 85, 105));
+        detail.setPadding(0, dp(8), 0, 0);
+        box.addView(status);
+        box.addView(detail);
+        root.addView(box);
+
+        Button edit = button("Alterar configuração");
+        edit.setOnClickListener(v -> askEmailToEdit());
+        root.addView(edit);
+        addFooter(root);
+    }
+
+    private void askEmailToEdit() {
+        EditText email = input("E-mail da unidade", "");
+        new AlertDialog.Builder(this)
+                .setTitle("Confirmar unidade")
+                .setView(email)
+                .setPositiveButton("Continuar", (dialog, which) -> {
+                    String typed = email.getText().toString().trim();
+                    if (typed.equalsIgnoreCase(AppConfig.getUnitEmail(this).trim())) {
+                        editingUnlocked = true;
+                        buildUi();
+                    } else {
+                        showMessage("E-mail inválido", "Informe o e-mail cadastrado nesta unidade.");
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     private void renderApps() {
@@ -280,6 +322,8 @@ public class MainActivity extends android.app.Activity {
                 .apply();
         AppConfig.setLastCommandNonce(this, 0L);
         startController();
+        editingUnlocked = false;
+        buildUi();
         showMessage(
                 "Controle ativo",
                 "Controle salvo. O MRIT Server abre primeiro e o kiosk volta para frente automaticamente.");
@@ -302,6 +346,12 @@ public class MainActivity extends android.app.Activity {
 
     private boolean hasRegisteredEmail() {
         return !AppConfig.getUnitEmail(this).trim().isEmpty();
+    }
+
+    private boolean isFullyConfigured() {
+        return hasRegisteredEmail()
+                && AppConfig.getSelectedPackages(this).size() >= 2
+                && !AppConfig.getActivePackage(this).trim().isEmpty();
     }
 
     private void requestRequiredPermissions() {
@@ -374,7 +424,7 @@ public class MainActivity extends android.app.Activity {
     }
 
     private void addFooter(LinearLayout root) {
-        TextView footer = label("© GelaFit • Tecnologia MRIT", 12, false);
+        TextView footer = label("\u00A9 GelaFit \u2022 Tecnologia MRIT", 12, false);
         footer.setGravity(Gravity.CENTER);
         footer.setTextColor(Color.rgb(100, 116, 139));
         footer.setPadding(0, dp(24), 0, 0);
