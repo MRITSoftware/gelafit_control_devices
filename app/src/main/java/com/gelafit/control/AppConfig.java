@@ -11,6 +11,8 @@ import java.util.UUID;
 
 final class AppConfig {
     private static final String PREFS = "gelafit_control";
+    static final String DEFAULT_SUPABASE_URL = "https://kihyhoqbrkwbfudttevo.supabase.co";
+    static final String DEFAULT_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpaHlob3Ficmt3YmZ1ZHR0ZXZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1NTUwMjcsImV4cCI6MjAzMTEzMTAyN30.XtBTlSiqhsuUIKmhAMEyxofV-dRst7240n912m4O4Us";
 
     private AppConfig() {}
 
@@ -29,11 +31,11 @@ final class AppConfig {
     }
 
     static String getSupabaseUrl(Context context) {
-        return prefs(context).getString("supabase_url", "");
+        return prefs(context).getString("supabase_url", DEFAULT_SUPABASE_URL);
     }
 
     static String getSupabaseKey(Context context) {
-        return prefs(context).getString("supabase_key", "");
+        return prefs(context).getString("supabase_key", DEFAULT_SUPABASE_KEY);
     }
 
     static String getUnitEmail(Context context) {

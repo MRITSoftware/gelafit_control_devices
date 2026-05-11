@@ -25,10 +25,12 @@ public class ControlService extends Service {
     private static final String CHANNEL_ID = "gelafit_control";
     private static final int NOTIFICATION_ID = 1042;
     private static final long SUPPORT_RELAUNCH_MS = 5 * 60 * 1000L;
+    private static final long KIOSK_DELAY_MS = 20 * 1000L;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private boolean running;
     private long lastSupportLaunchAt;
+    private String lastLaunchPlan = "";
 
     private final Runnable loop = new Runnable() {
         @Override
@@ -90,8 +92,14 @@ public class ControlService extends Service {
     }
 
     private void maintainSelectedApps(List<String> selected, String activePackage) {
+        if (selected.isEmpty()) {
+            return;
+        }
         long now = SystemClock.elapsedRealtime();
-        boolean relaunchSupport = lastSupportLaunchAt == 0 || now - lastSupportLaunchAt >= SUPPORT_RELAUNCH_MS;
+        String launchPlan = activePackage + "|" + selected.toString();
+        boolean relaunchSupport = !launchPlan.equals(lastLaunchPlan)
+                || lastSupportLaunchAt == 0
+                || now - lastSupportLaunchAt >= SUPPORT_RELAUNCH_MS;
         if (relaunchSupport) {
             for (String packageName : selected) {
                 if (!packageName.equals(activePackage)) {
@@ -99,19 +107,18 @@ public class ControlService extends Service {
                 }
             }
             lastSupportLaunchAt = now;
-        }
-        if (activePackage != null && !activePackage.isEmpty()) {
-            launchPackage(activePackage);
+            lastLaunchPlan = launchPlan;
+            if (activePackage != null && !activePackage.isEmpty()) {
+                handler.postDelayed(() -> launchPackage(activePackage), KIOSK_DELAY_MS);
+            }
             return;
-        }
-        for (String packageName : selected) {
-            launchPackage(packageName);
         }
     }
 
     private boolean hasSupabaseConfig() {
         return !AppConfig.getSupabaseUrl(this).trim().isEmpty()
-                && !AppConfig.getSupabaseKey(this).trim().isEmpty();
+                && !AppConfig.getSupabaseKey(this).trim().isEmpty()
+                && !AppConfig.getUnitEmail(this).trim().isEmpty();
     }
 
     private List<String> syncSelectedAppsFromServer(JSONObject device, List<String> fallback) {

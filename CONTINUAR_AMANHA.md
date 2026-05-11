@@ -7,10 +7,9 @@ O app Android esta como MVP de controle remoto via Supabase.
 Ele permite configurar:
 
 - E-mail da unidade (`unit_email`) para identificar o dispositivo de forma humana.
-- Supabase URL.
-- Supabase anon key.
-- Apps instalados que devem ser monitorados (`selected_apps`).
-- App principal do kiosk (`active_package`).
+- Supabase URL e anon key ja ficam pre-configurados no app.
+- Dois apps instalados que devem ser monitorados (`selected_apps`).
+- App principal do kiosk (`active_package`), obrigatoriamente um dos dois selecionados.
 
 O `device_id` continua existindo como identificador tecnico unico do tablet.
 
@@ -29,8 +28,8 @@ O servico Android:
 - Roda em foreground com notificacao fixa.
 - Faz sincronizacao com o Supabase a cada 15 segundos.
 - Atualiza `status`, `last_seen_at`, `selected_apps`, `active_package` e `last_error`.
-- Abre apps de suporte periodicamente para ajudar a manter o backend local vivo.
-- Depois traz o app principal para frente.
+- Abre o app de suporte primeiro para ajudar a manter o backend local vivo.
+- Depois de cerca de 20 segundos, traz o app principal para frente.
 
 ## Supabase
 
@@ -124,9 +123,8 @@ Resultado:
 2. Rodar `supabase-control.sql` no Supabase.
 3. Configurar no app:
    - E-mail da unidade.
-   - Supabase URL.
-   - anon key.
-   - Selecionar servidor local + app principal.
+   - Liberar permissoes solicitadas.
+   - Pesquisar e selecionar servidor local + app principal.
    - Marcar o app principal como kiosk.
 4. Conferir se a linha aparece no Supabase com `unit_email`.
 5. Testar se `active_package` fica sendo trazido para frente.

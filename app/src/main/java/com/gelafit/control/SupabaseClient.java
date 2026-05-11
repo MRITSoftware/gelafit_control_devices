@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -27,7 +28,11 @@ final class SupabaseClient {
     }
 
     JSONObject fetchDevice() throws Exception {
-        String endpoint = restUrl(DEVICES_TABLE + "?device_id=eq." + AppConfig.getDeviceId(context) + "&select=*");
+        String unitEmail = AppConfig.getUnitEmail(context);
+        String lookup = unitEmail.trim().isEmpty()
+                ? "device_id=eq." + url(AppConfig.getDeviceId(context))
+                : "unit_email=eq." + url(unitEmail.trim());
+        String endpoint = restUrl(DEVICES_TABLE + "?" + lookup + "&select=*");
         HttpURLConnection connection = open(endpoint, "GET");
         String body = read(connection);
         JSONArray array = new JSONArray(body);
@@ -43,7 +48,19 @@ final class SupabaseClient {
             upsertDevice(created);
             return created;
         }
-        return array.getJSONObject(0);
+        JSONObject existing = array.getJSONObject(0);
+        JSONObject payload = new JSONObject();
+        payload.put("device_id", AppConfig.getDeviceId(context));
+        payload.put("unit_email", unitEmail);
+        payload.put("status", "online");
+        payload.put("selected_apps", new JSONArray(AppConfig.getSelectedPackages(context)));
+        payload.put("active_package", AppConfig.getActivePackage(context));
+        patchByLookup(lookup, payload);
+        existing.put("device_id", AppConfig.getDeviceId(context));
+        existing.put("unit_email", unitEmail);
+        existing.put("selected_apps", payload.getJSONArray("selected_apps"));
+        existing.put("active_package", payload.optString("active_package", ""));
+        return existing;
     }
 
     void updateStatus(String status, List<String> selectedPackages, String activePackage, String lastError) throws Exception {
@@ -73,7 +90,15 @@ final class SupabaseClient {
     }
 
     private void patchDevice(JSONObject payload) throws Exception {
-        String endpoint = restUrl(DEVICES_TABLE + "?device_id=eq." + AppConfig.getDeviceId(context));
+        String unitEmail = AppConfig.getUnitEmail(context);
+        String lookup = unitEmail.trim().isEmpty()
+                ? "device_id=eq." + url(AppConfig.getDeviceId(context))
+                : "unit_email=eq." + url(unitEmail.trim());
+        patchByLookup(lookup, payload);
+    }
+
+    private void patchByLookup(String lookup, JSONObject payload) throws Exception {
+        String endpoint = restUrl(DEVICES_TABLE + "?" + lookup);
         HttpURLConnection connection = open(endpoint, "PATCH");
         connection.setRequestProperty("Prefer", "return=minimal");
         write(connection, payload);
@@ -86,6 +111,10 @@ final class SupabaseClient {
             base = base.substring(0, base.length() - 1);
         }
         return base + "/rest/v1/" + path;
+    }
+
+    private String url(String value) throws Exception {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
     }
 
     private String isoNow() {

@@ -20,6 +20,10 @@ add column if not exists unit_email text;
 alter table public.gelafit_control_devices
 add column if not exists active_package text;
 
+create unique index if not exists gelafit_control_devices_unit_email_key
+on public.gelafit_control_devices (unit_email)
+where unit_email is not null;
+
 alter table public.gelafit_control_devices enable row level security;
 
 drop policy if exists "gelafit_control_devices_read" on public.gelafit_control_devices;

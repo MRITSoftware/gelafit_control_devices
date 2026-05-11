@@ -6,11 +6,12 @@ App Android controlador para manter apps selecionados abertos e receber comandos
 
 1. Crie a tabela no Supabase executando `supabase-control.sql`.
 2. Compile e instale o APK no tablet.
-3. Abra o app, informe o e-mail da unidade, a `Supabase URL` e a `anon key`.
-4. Selecione os apps instalados que devem ser monitorados.
-5. Marque qual app e o app principal do kiosk.
-6. Toque em `Salvar e iniciar controle`.
-7. Toque em `Liberar bateria 24/7` e permita ignorar otimizacoes de bateria.
+3. Abra o app e libere as permissoes solicitadas.
+4. Informe o e-mail da unidade.
+5. Pesquise e selecione exatamente 2 apps.
+6. Marque qual dos 2 apps e o app principal do kiosk.
+7. Toque em `Salvar e iniciar controle`.
+8. O app de suporte abre primeiro; cerca de 20 segundos depois o kiosk abre por cima.
 
 O tablet cria ou atualiza uma linha em `public.gelafit_control_devices` usando o `device_id` exibido na tela. O campo `unit_email` serve para identificar a unidade no painel/Supabase.
 
