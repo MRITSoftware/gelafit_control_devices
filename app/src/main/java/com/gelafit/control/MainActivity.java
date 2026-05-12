@@ -22,6 +22,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.FrameLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -62,12 +63,15 @@ public class MainActivity extends android.app.Activity {
     }
 
     private void buildUi() {
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackgroundColor(Color.rgb(241, 245, 249));
         ScrollView scroll = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(20), dp(20), dp(22));
+        root.setPadding(dp(20), dp(20), dp(20), dp(92));
         root.setBackgroundColor(Color.rgb(241, 245, 249));
         scroll.addView(root);
+        frame.addView(scroll);
 
         TextView title = label("GelaFit Control", 24, true);
         root.addView(title);
@@ -82,7 +86,7 @@ public class MainActivity extends android.app.Activity {
 
         if (isFullyConfigured() && !editingUnlocked) {
             renderOperationScreen(root);
-            setContentView(scroll);
+            setContentView(frame);
             return;
         }
 
@@ -94,7 +98,7 @@ public class MainActivity extends android.app.Activity {
             registerEmail.setOnClickListener(v -> saveEmailAndContinue());
             root.addView(registerEmail);
             addFooter(root);
-            setContentView(scroll);
+            setContentView(frame);
             return;
         }
 
@@ -143,12 +147,16 @@ public class MainActivity extends android.app.Activity {
         root.addView(appsContainer);
         renderApps();
 
-        Button save = button("Salvar e iniciar controle");
-        save.setOnClickListener(v -> saveSettings());
-        root.addView(save);
-
         addFooter(root);
-        setContentView(scroll);
+        Button save = button("Salvar configuração");
+        save.setOnClickListener(v -> saveSettings());
+        FrameLayout.LayoutParams saveParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                dp(56),
+                Gravity.BOTTOM);
+        saveParams.setMargins(dp(20), 0, dp(20), dp(18));
+        frame.addView(save, saveParams);
+        setContentView(frame);
         refreshPermissionStatus();
     }
 

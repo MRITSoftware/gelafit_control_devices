@@ -25,7 +25,6 @@ public class ControlService extends Service {
     static final String ACTION_LAUNCH_SELECTED = "com.gelafit.control.LAUNCH_SELECTED";
     private static final String CHANNEL_ID = "gelafit_control";
     private static final int NOTIFICATION_ID = 1042;
-    private static final long SUPPORT_RELAUNCH_MS = 5 * 60 * 1000L;
     private static final long KIOSK_DELAY_MS = 20 * 1000L;
     private static final long LOCAL_LOOP_MS = 1 * 1000L;
     private static final long STATUS_UPDATE_MS = 15 * 60 * 1000L;
@@ -33,11 +32,9 @@ public class ControlService extends Service {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private boolean running;
     private boolean registered;
-    private long lastSupportLaunchAt;
     private long lastStatusUpdateAt;
     private long lastErrorUpdateAt;
     private long kioskPausedUntil;
-    private String lastLaunchPlan = "";
     private SupabaseRealtimeClient realtimeClient;
 
     private final Runnable loop = new Runnable() {
@@ -170,24 +167,6 @@ public class ControlService extends Service {
             return;
         }
         long now = SystemClock.elapsedRealtime();
-        String launchPlan = activePackage + "|" + selected.toString();
-        boolean relaunchSupport = !launchPlan.equals(lastLaunchPlan)
-                || lastSupportLaunchAt == 0
-                || now - lastSupportLaunchAt >= SUPPORT_RELAUNCH_MS;
-        if (relaunchSupport) {
-            for (String packageName : selected) {
-                if (!packageName.equals(activePackage)) {
-                    launchPackage(packageName);
-                }
-            }
-            lastSupportLaunchAt = now;
-            lastLaunchPlan = launchPlan;
-            if (kioskEnabled && activePackage != null && !activePackage.isEmpty()) {
-                pauseKioskBriefly();
-                handler.postDelayed(() -> launchPackage(activePackage), KIOSK_DELAY_MS);
-            }
-            return;
-        }
         if (kioskEnabled && activePackage != null && !activePackage.isEmpty() && now >= kioskPausedUntil) {
             launchPackage(activePackage);
         }
