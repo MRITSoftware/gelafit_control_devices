@@ -24,7 +24,7 @@ final class SupabaseRealtimeClient {
 
     private static final String TABLE = "gelafit_control_devices";
     private static final long HEARTBEAT_MS = 25_000L;
-    private static final long RECONNECT_MS = 30_000L;
+    private static final long[] RECONNECT_DELAYS = {5_000L, 10_000L, 20_000L, 30_000L};
 
     private final Context context;
     private final Listener listener;
@@ -36,6 +36,7 @@ final class SupabaseRealtimeClient {
     private WebSocket socket;
     private boolean running;
     private int ref;
+    private int reconnectAttempts;
 
     SupabaseRealtimeClient(Context context, Listener listener) {
         this.context = context.getApplicationContext();
@@ -70,6 +71,7 @@ final class SupabaseRealtimeClient {
         socket = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
+                reconnectAttempts = 0;
                 joinChannel();
                 scheduleHeartbeat();
             }
@@ -142,7 +144,9 @@ final class SupabaseRealtimeClient {
             return;
         }
         socket = null;
-        handler.postDelayed(this::connect, RECONNECT_MS);
+        long delay = RECONNECT_DELAYS[Math.min(reconnectAttempts, RECONNECT_DELAYS.length - 1)];
+        reconnectAttempts++;
+        handler.postDelayed(this::connect, delay);
     }
 
     private void send(String topic, String event, JSONObject payload) {
